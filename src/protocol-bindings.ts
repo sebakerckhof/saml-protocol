@@ -1,18 +1,18 @@
 "use strict";
 
-const url = require("url");
-const zlib = require("zlib");
+import url from "url";
+import zlib from "zlib";
 
-const credentials = require("./util/credentials");
-const signing     = require("./util/signing");
+import credentials from "./util/credentials";
+import signing from "./util/signing";
 
-const protocol = require("./protocol");
+import protocol from "./protocol";
 
 /////////////////////////////////////////////////////////////////
 //// POST and REDIRECT SAML protocol binding implementations ////
 /////////////////////////////////////////////////////////////////
 
-module.exports = {
+export {
 	expandBindings,
 	chooseBinding,
 	applyBinding,
@@ -183,7 +183,7 @@ function applyPostBinding(sender, recipient, xmlPayload, isResponse, endpointURL
 	}
 
 	// base64 encode the payload
-	const base64ed = new Buffer(finalPayload, "utf8").toString("base64");
+	const base64ed = Buffer.from(finalPayload, "utf8").toString("base64");
 
 	const urlObj = url.parse(endpointURL);
 	const bodyParams = {};
@@ -257,7 +257,7 @@ function getDataFromPostBinding(postParams) {
  */
 function decodeXMLPayload(rawPayload) {
 
-	const rawPayloadBuff = new Buffer(rawPayload, "base64");
+	const rawPayloadBuff = Buffer.from(rawPayload, "base64");
 	let decoded = null;
 
 	// attempt to inflate with zlib

@@ -1,24 +1,21 @@
-"use strict";
+import xpath from "xpath";
+import xmlbuilder from "xmlbuilder";
+import { DOMParser } from "xmldom";
 
-const xpath      = require("xpath");
-const xmlbuilder = require("xmlbuilder");
-const xmldom     = require("xmldom");
+import credentials from "./util/credentials";
+import encryption from "./util/encryption";
+import pemFormatting from "./util/pem-formatting";
+import randomID from "./util/random-id";
+import signing from "./util/signing";
 
-const credentials   = require("./util/credentials");
-const encryption    = require("./util/encryption");
-const pemFormatting = require("./util/pem-formatting");
-const randomID      = require("./util/random-id");
-const signing       = require("./util/signing");
+import errors from "./errors";
+import protocol from "./protocol";
+import protocolBindings from "./protocol-bindings";
+import namespaces from "./namespaces";
 
-const errors           = require("./errors");
-const protocol         = require("./protocol");
-const protocolBindings = require("./protocol-bindings");
-const namespaces       = require("./namespaces");
-
-const DOMParser = xmldom.DOMParser;
 const select = xpath.useNamespaces(namespaces);
 
-module.exports = {
+export {
 	buildIDPMetadata,
 	buildSPMetadata,
 	getIDPFromMetadata,

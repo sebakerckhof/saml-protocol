@@ -1,17 +1,16 @@
-"use strict";
+import xpath from "xpath";
+import {
+	DOMParser,
+	XMLSerializer
+} from "xmldom";
+import xmlenc from "xml-encryption";
 
-const xpath = require("xpath");
-const xmldom = require("xmldom");
-const xmlenc = require("xml-encryption");
+import credentials from "./credentials";
+import pemFormatting from "./pem-formatting";
 
-const credentials   = require("./credentials");
-const pemFormatting = require("./pem-formatting");
+import namespaces from "../namespaces";
 
-const namespaces = require("../namespaces");
-
-const DOMParser     = xmldom.DOMParser;
-const XMLSerializer = xmldom.XMLSerializer;
-const select        = xpath.useNamespaces(namespaces);
+const select = xpath.useNamespaces(namespaces);
 
 // these are the encryption algorithms supported by xml-encryption
 const supportedAlgorithms = {
@@ -31,7 +30,7 @@ const defaultAlgorithms = {
 	keyEncryption: "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p"
 };
 
-module.exports = {
+export {
 	decryptAssertion,
 	encryptAssertion,
 	decryptData,
@@ -45,13 +44,13 @@ module.exports = {
  * @param doc: XML document to operate upon
  * @param credential: an array of credential objects containing private keys
  */
-function decryptAssertion(doc, credentials) {
+async function decryptAssertion(doc, credentials) {
 
 	const encryptedAssertion = select("//saml:EncryptedAssertion", doc)[0];
 
 	// bail if there's nothing to do
 	if (!encryptedAssertion) {
-		return Promise.resolve(doc);
+		return doc;
 	}
 
 	// find and the encrypted data node - xmlenc can accept this directly
@@ -59,20 +58,19 @@ function decryptAssertion(doc, credentials) {
 	const encryptedDataStr = new XMLSerializer().serializeToString(encryptedDataNode);
 
 	// decrypt the XML - this will be a string
-	return decryptData(encryptedDataStr, credentials)
-		.then(decryptedXml => {
+	const decryptedXml = await decryptData(encryptedDataStr, credentials)
 
-			// deserialize the assertion and mutate the document
-			const newAssertionDoc = new DOMParser().parseFromString(decryptedXml, namespaces.saml);
-			const assertion = select("//*[local-name(.)='Assertion']", newAssertionDoc)[0];
-			encryptedAssertion.parentNode.replaceChild(assertion, encryptedAssertion);
+	// deserialize the assertion and mutate the document
+	const newAssertionDoc = new DOMParser().parseFromString(decryptedXml, namespaces.saml);
+	const assertion = select("//*[local-name(.)='Assertion']", newAssertionDoc)[0];
+	encryptedAssertion.parentNode.replaceChild(assertion, encryptedAssertion);
 
-			// we have to do another serialize/deserialize pass to get the
-			// subdocument to respect the parent's namespaces
-			const newDocXML = new XMLSerializer().serializeToString(doc);
-			const newDoc = new DOMParser().parseFromString(newDocXML);
-			return newDoc;
-		});
+	// we have to do another serialize/deserialize pass to get the
+	// subdocument to respect the parent's namespaces
+	const newDocXML = new XMLSerializer().serializeToString(doc);
+	const newDoc = new DOMParser().parseFromString(newDocXML);
+	return newDoc;
+
 }
 
 /**
@@ -88,19 +86,18 @@ function encryptAssertion(doc, credential, algorithms) {
 	const assertXml = new XMLSerializer().serializeToString(assertion);
 
 	// encrypt the XML payload
-	return encryptData(assertXml, credential, algorithms)
-		.then(encryptedData => {
+	const encryptedData = await encryptData(assertXml, credential, algorithms)
 
-			// cobble together the EncryptedAssertion node as a string and parse
-			const encTagName = "saml:EncryptedAssertion";
-			const encAssertString = `<${encTagName}>${encryptedData}</${encTagName}>`;
-			const encryptedAssertion = new DOMParser().parseFromString(encAssertString);
+	// cobble together the EncryptedAssertion node as a string and parse
+	const encTagName = "saml:EncryptedAssertion";
+	const encAssertString = `<${encTagName}>${encryptedData}</${encTagName}>`;
+	const encryptedAssertion = new DOMParser().parseFromString(encAssertString);
 
-			// replace the assertion with the encrypted node
-			doc.replaceChild(encryptedAssertion, assertion);
+	// replace the assertion with the encrypted node
+	doc.replaceChild(encryptedAssertion, assertion);
 
-			return doc;
-		});
+	return doc;
+
 }
 
 /**
@@ -115,19 +112,20 @@ function decryptData(encryptedData, credentials) {
 	// ends after the first resolution
 	return credentials
 		.reduce(function (chain, credential) {
-			return chain.catch(function() {
+			return chain.catch(function () {
 
 				// promise => decryption or bust
 				return new Promise(function (resolve, reject) {
-					const decryptOptions = { key: credential.privateKey };
+					const decryptOptions = {
+						key: credential.privateKey
+					};
 					xmlenc.decrypt(
 						encryptedData,
 						decryptOptions,
 						function (err, result) {
 							if (err) {
 								reject(err);
-							}
-							else {
+							} else {
 								resolve(result);
 							}
 						}
@@ -154,7 +152,7 @@ function encryptData(data, credential, algorithms) {
 
 		// resolve public key
 		let publicKey = credential.publicKey;
-		if (!publicKey) {  // only invoke if publicKey attribute is not present for performance
+		if (!publicKey) { // only invoke if publicKey attribute is not present for performance
 			publicKey = credentials.getPublicKeyFromCertificate(certificate);
 		}
 
@@ -165,7 +163,7 @@ function encryptData(data, credential, algorithms) {
 			pem: certificate,
 			rsa_pub: publicKey
 		};
-		xmlenc.encrypt(data, encryptOptions, function(err, result) {
+		xmlenc.encrypt(data, encryptOptions, function (err, result) {
 			if (err) {
 				reject(err);
 			}

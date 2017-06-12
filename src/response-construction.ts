@@ -1,17 +1,17 @@
 "use strict";
 
-const xmlbuilder = require("xmlbuilder");
-const xmldom     = require("xmldom");
+import xmlbuilder from "xmlbuilder";
+import xmldom from "xmldom";
 
-const errors           = require("./errors");
-const namespaces       = require("./namespaces");
-const protocol         = require("./protocol");
-const protocolBindings = require("./protocol-bindings");
-const credentials      = require("./util/credentials");
-const encryption       = require("./util/encryption");
-const randomID         = require("./util/random-id");
+import { ProtocolError } from "./errors";
+import namespaces from "./namespaces";
+import protocol from "./protocol";
+import protocolBindings from "./protocol-bindings";
+import credentials from "./util/credentials";
+import encryption from "./util/encryption";
+import randomID from "./util/random-id";
 
-module.exports = {
+export {
 
 	// primary exposed methods
 	buildBoundSuccessResponse,
@@ -23,22 +23,16 @@ module.exports = {
 	constructAssertion
 };
 
-function buildBoundSuccessResponse(sp, idp, model, inResponseTo, nameID, attributes) {
+async function buildBoundSuccessResponse(sp, idp, model, inResponseTo, nameID, attributes) {
 	const bindingChoice = protocolBindings.chooseBinding(sp, "assert");
-	return createSuccessResponse(sp, idp, inResponseTo, nameID, attributes, bindingChoice.url)
-		.then(responseXML => {
-			return protocolBindings
-				.applyBinding(idp, sp, responseXML, true, "assert", bindingChoice);
-		});
+	const responseXML = await createSuccessResponse(sp, idp, inResponseTo, nameID, attributes, bindingChoice.url)
+	return protocolBindings.applyBinding(idp, sp, responseXML, true, "assert", bindingChoice);
 }
 
-function buildBoundAuthnFailureResponse(sp, idp, model, inResponseTo, errorMessage) {
+async function buildBoundAuthnFailureResponse(sp, idp, model, inResponseTo, errorMessage) {
 	const bindingChoice = protocolBindings.chooseBinding(sp, "assert");
-	return createAuthnFailureResponse(sp, idp, inResponseTo, errorMessage, bindingChoice.url)
-		.then(responseXML => {
-			return protocolBindings
-				.applyBinding(idp, sp, responseXML, true, "assert", bindingChoice);
-		});
+	const responseXML = await createAuthnFailureResponse(sp, idp, inResponseTo, errorMessage, bindingChoice.url)
+	return protocolBindings.applyBinding(idp, sp, responseXML, true, "assert", bindingChoice);
 }
 
 /**
@@ -84,7 +78,7 @@ function createSuccessResponse(sp, idp, inResponseTo, nameID, attributes, destin
 	if (sp.requireEncryptedResponses || idp.encryptAllResponses) {
 		const encryptCredential = credentials.getCredentialsFromEntity(sp, "encryption")[0];
 		if (!encryptCredential) {
-			throw new errors.ProtocolError("Unable to encrypt assertion; no credential provided");
+			throw new ProtocolError("Unable to encrypt assertion; no credential provided");
 		}
 		// re-parse with xmldom, encrypt (not fast, but not heinous), serialize
 		const doc = new xmldom.DOMParser().parseFromString(xml);

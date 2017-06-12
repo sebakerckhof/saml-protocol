@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "outDir": "./build",
+    "baseUrl": "./",
+    "paths": {},
+    "lib": [
+      "dom",
+      "es2015.core",
+      "es2015.promise",
+      "es2015.iterable",
+      "es5"
+    ]
+  },
+  "atom": { "rewriteTsconfig": false },
+  "typeRoots": [
+    "node_modules/@types",
+    "@types"
+  ],
+  "filesGlob": [
+    "./src/**/*.ts",
+    "index.ts"
+  ],
+  "compileOnSave": false,
+  "buildOnSave": false
+}

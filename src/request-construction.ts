@@ -1,13 +1,16 @@
 "use strict";
 
-const xmlbuilder = require("xmlbuilder");
+import xmlbuilder from "xmlbuilder";
 
-const namespaces       = require("./namespaces");
-const protocol         = require("./protocol");
-const protocolBindings = require("./protocol-bindings");
-const randomID         = require("./util/random-id");
+import namespaces from "./namespaces";
+import protocol from "./protocol";
+import protocolBindings from "./protocol-bindings";
+import randomID from "./util/random-id";
+import { ProviderConfig } from './provider';
+import { IDPProviderConfig } from './identity-provider';
+import { SPProviderConfig } from './service-provider';
 
-module.exports = {
+export {
 
 	// method used by rest of app
 	createBoundAuthnRequest,
@@ -21,12 +24,10 @@ module.exports = {
  * Constructs and returns a description of how to direct the user to
  * an IDP, or throws an error.
  */
-function createBoundAuthnRequest(sp, idp, model) {
+async function createBoundAuthnRequest(sp: SPProviderConfig, idp: IDPProviderConfig, model) {
 	const idpBindingChoice = protocolBindings.chooseBinding(idp, "login");
-	return createAuthnRequest(sp, idp, model, idpBindingChoice.url)
-		.then(authnRequestXML => {
-			return protocolBindings.applyBinding(sp, idp, authnRequestXML, false, "login", idpBindingChoice);
-		});
+	const authnRequestXML = await createAuthnRequest(sp, idp, model, idpBindingChoice.url)
+	return protocolBindings.applyBinding(sp, idp, authnRequestXML, false, "login", idpBindingChoice);
 }
 
 /**
@@ -35,7 +36,7 @@ function createBoundAuthnRequest(sp, idp, model) {
  * @param idp: identity provider config
  * @param model: model instance capable of persisting a request ID
  */
-function createAuthnRequest(sp, idp, model, destinationURL) {
+async function createAuthnRequest(sp, idp, model, destinationURL) {
 
 	// generate an ID - 21 random bytes should be unique enough
 	const requestID = randomID();
@@ -78,17 +79,14 @@ function createAuthnRequest(sp, idp, model, destinationURL) {
 		.end();
 
 	// persist the request ID, return promise chain
-	return model
-		.storeRequestID(requestID, idp)
-		.then(() => {
-			return authnRequest;
-		});
+	await model.storeRequestID(requestID, idp)
+	return authnRequest;
 }
 
 /**
  * Selects a NameID format which is supported by both the IDP and SP
  */
-function chooseFirstSharedNameIDFormat(entities) {
+function chooseFirstSharedNameIDFormat(entities: ProviderConfig[]) {
 
 	const orderedSharedFormats = entities
 		.map(entity => entity.nameIDFormats)

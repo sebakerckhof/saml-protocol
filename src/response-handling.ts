@@ -1,22 +1,18 @@
-"use strict";
+import xmldom from "xmldom";
+import xpath from "xpath";
 
-const xmldom      = require("xmldom");
-const xpath       = require("xpath");
+import credentials from "./util/credentials";
+import encryption from "./util/encryption";
+import { ProtocolError, RejectionError } from "./errors";
+import namespaces from "./namespaces";
+import protocol from "./protocol";
+import responseValidation from "./response-validation";
 
-const credentials        = require("./util/credentials");
-const encryption         = require("./util/encryption");
-const errors             = require("./errors");
-const namespaces         = require("./namespaces");
-const protocol           = require("./protocol");
-const responseValidation = require("./response-validation");
-
-const DOMParser = xmldom.DOMParser;
-const ProtocolError = errors.ProtocolError;
-const ResponseValidator = responseValidation.ResponseValidator;
+import DOMParser = xmldom.DOMParser;
 
 const select = xpath.useNamespaces(namespaces);
 
-module.exports = {
+export {
 
 	// methods used by rest of app
 	processResponse,
@@ -37,7 +33,7 @@ module.exports = {
  * @returns: a description of the nameID and claims in the response
  * @throws: errors in case of failure
  */
-function processResponse(model, sp, samlResponse) {
+async function processResponse(model, sp, samlResponse) {
 
 	// decode and parse the SAML document
 	let doc = new DOMParser().parseFromString(samlResponse.payload);
@@ -46,7 +42,7 @@ function processResponse(model, sp, samlResponse) {
 	// should reflect the assertion's IDP
 	const issuer = select("//saml:Issuer/text()", doc)[0];
 	if (!issuer) {
-		throw new errors.ProtocolError(
+		throw new ProtocolError(
 			"Unable to identify issuer",
 			sp,
 			null,
@@ -55,102 +51,91 @@ function processResponse(model, sp, samlResponse) {
 	}
 
 	let idp;
-	let validator;
+
 	let assertion;
 
-	// look up IDP corresponding to this response
-	return model
-		.getIdentityProvider(issuer.nodeValue)
-		.catch(err => {
-			throw new ProtocolError(
-				"Unable to identify IDP: " + err,
-				sp,
-				null,
-				samlResponse.payload
-			);
-		})
-		.then(resolvedIDP => {
+	try {
+		idp = model.getIdentityProvider(issuer.nodeValue);
+	} catch (error) {
+		throw new ProtocolError(
+			"Unable to identify IDP: " + error,
+			sp,
+			null,
+			samlResponse.payload
+		);
+	}
+	const validator = new ResponseValidator(sp, idp, model);
 
-			// construct IDP, validator
-			idp = resolvedIDP;
-			validator = new ResponseValidator(sp, idp, model);
+	// ensure status is success; rejection error thrown otherwise
+	checkStatus(doc, idp);
 
-			// ensure status is success; rejection error thrown otherwise
-			checkStatus(doc, idp);
+	// the REDIRECT protocol binding uses query-level signatures,
+	// so invoke the protocol level check if supported.
+	if (samlResponse.verifySignature) {
+		validator.hasValidSignature = samlResponse.verifySignature(idp);
+	}
 
-			// the REDIRECT protocol binding uses query-level signatures,
-			// so invoke the protocol level check if supported.
-			if (samlResponse.verifySignature) {
-				validator.hasValidSignature = samlResponse.verifySignature(idp);
-			}
+	// for POST responses, the signature may be in the top-level
+	// Response, or it may be inside the Assertion, which may be
+	// encrypted. validate all unencrypted signatures now.
+	else {
+		validator.validateAllSignatures(samlResponse.payload, doc);
+	}
 
-			// for POST responses, the signature may be in the top-level
-			// Response, or it may be inside the Assertion, which may be
-			// encrypted. validate all unencrypted signatures now.
-			else {
-				validator.validateAllSignatures(samlResponse.payload, doc);
-			}
+	// next, decrypt the assertion if necessary
+	if (select("//saml:EncryptedAssertion", doc).length) {
 
-			// next, decrypt the assertion if necessary
-			if (select("//saml:EncryptedAssertion", doc).length) {
-
-				// remove the top-level signature, as it is now invalid
-				select("//ds:Signature", doc).forEach(sigNode => {
-					doc.removeChild(sigNode);
-				});
-
-				// encryption creds are provided by the SP
-				const encryptCreds = credentials.getCredentialsFromEntity(sp, "encryption");
-				return encryption
-					.decryptAssertion(doc, encryptCreds)
-					.then(newDoc => {
-
-						doc = newDoc;
-						assertion = select("//saml:Assertion", doc)[0];
-
-						const newDocXML = new xmldom.XMLSerializer().serializeToString(doc);
-						validator.validateAllSignatures(newDocXML, assertion);
-					});
-			}
-			else {
-				assertion = select("//saml:Assertion", doc)[0];
-			}
-		})
-		.then(() => {
-			// do conditions and protocol validations
-			validator.validateSignatureRequirement();
-			return validator.validateResponseDocument(doc);
-		})
-		.then(() => {
-			// throw an error with the aggregate validation issues if necessary
-			if (!validator.isValid()) {
-				throw new errors.ValidationError(
-					"invalid assertion",
-					validator.getErrors(),
-					sp,
-					idp,
-					samlResponse.payload
-				);
-			}
-		})
-		.then(() => {
-			// if possible, make the request ID as processed to avoid playback attacks
-			if (model.invalidateRequestID) {
-				return model.invalidateRequestID(validator.inResponseTo, idp);
-			}
-		})
-		.then(() => {
-			// prepare and return assertion payload descriptor
-			const nameIDNode = select("//saml:Subject/saml:NameID", assertion)[0];
-			const nameID = select("./text()", nameIDNode)[0].nodeValue;
-			const nameIDFormat = nameIDNode.getAttribute("Format") || protocol.NAMEIDFORMAT.undefined;
-			return {
-				idp: idp,
-				nameID: nameID,
-				nameIDFormat: nameIDFormat,
-				attributes: extractUserAttributes(assertion)
-			};
+		// remove the top-level signature, as it is now invalid
+		select("//ds:Signature", doc).forEach(sigNode => {
+			doc.removeChild(sigNode);
 		});
+
+		// encryption creds are provided by the SP
+		const encryptCreds = credentials.getCredentialsFromEntity(sp, "encryption");
+		doc = await encryption.decryptAssertion(doc, encryptCreds)
+
+		assertion = select("//saml:Assertion", doc)[0];
+
+		const newDocXML = new xmldom.XMLSerializer().serializeToString(doc);
+		validator.validateAllSignatures(newDocXML, assertion);
+	}
+	else {
+		assertion = select("//saml:Assertion", doc)[0];
+	}
+
+
+	// do conditions and protocol validations
+	validator.validateSignatureRequirement();
+	await validator.validateResponseDocument(doc);
+
+	// throw an error with the aggregate validation issues if necessary
+	if (!validator.isValid()) {
+		throw new errors.ValidationError(
+			"invalid assertion",
+			validator.getErrors(),
+			sp,
+			idp,
+			samlResponse.payload
+		);
+	}
+
+	// if possible, make the request ID as processed to avoid playback attacks
+	if (model.invalidateRequestID) {
+		await model.invalidateRequestID(validator.inResponseTo, idp);
+	}
+
+
+	// prepare and return assertion payload descriptor
+	const nameIDNode = select("//saml:Subject/saml:NameID", assertion)[0];
+	const nameID = select("./text()", nameIDNode)[0].nodeValue;
+	const nameIDFormat = nameIDNode.getAttribute("Format") || protocol.NAMEIDFORMAT.undefined;
+	return {
+		idp: idp,
+		nameID: nameID,
+		nameIDFormat: nameIDFormat,
+		attributes: extractUserAttributes(assertion)
+	};
+
 }
 
 /**
@@ -179,7 +164,7 @@ function checkStatus(doc, idp) {
 		}
 
 		const serializedDoc = new xmldom.XMLSerializer().serializeToString(doc);
-		throw new errors.RejectionError(errBody, null, idp, serializedDoc);
+		throw new RejectionError(errBody, null, idp, serializedDoc);
 	}
 }
 
@@ -209,7 +194,7 @@ function extractUserAttributes(assertion) {
 			};
 		});
 	}
-	else { 
+	else {
 		//attribute statement is not required, try falling back to nameId
 		return [];
 	}

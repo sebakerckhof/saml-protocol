@@ -1,9 +1,10 @@
 "use strict";
 
-const SignedXml  = require("xml-crypto").SignedXml;
-const xmlbuilder = require("xmlbuilder");
+import { SignedXml } from "xml-crypto";
+import xmlbuilder from "xmlbuilder";
 
-const pemFormatting = require("./pem-formatting");
+import pemFormatting from "./pem-formatting";
+import { Credential } from '../provider';
 
 // we export this list for use in metadata
 const supportedAlgorithms = [
@@ -12,7 +13,7 @@ const supportedAlgorithms = [
 	"http://www.w3.org/2000/09/xmldsig#rsa-sha1"
 ];
 
-module.exports = {
+export {
 	createURLSignature,
 	verifyURLSignature,
 	signXML,
@@ -65,7 +66,7 @@ function createURLSignature(privateKeyPem, signedPayload, sigAlg) {
  * @param signedPayload: payload string on which to verify signature
  * @param signature: signature parameter
  */
-function verifyURLSignature(certPem, signedPayload, sigAlg, signature) {
+function verifyURLSignature(certPem: string, signedPayload: string, sigAlg: string, signature: string) {
 	const certPemWitHeaders = pemFormatting.addPEMHeaders("CERTIFICATE", certPem);
 	const signingAlgorithmName = resolveSignatureAlgorithm(sigAlg);
 	return SignedXml
@@ -83,7 +84,7 @@ function verifyURLSignature(certPem, signedPayload, sigAlg, signature) {
  * @param credentials: object containing a certificate and private key (PEM)
  * @param options: options including 'prefix' and 'signatureAlgorithm'
  */
-function signXML(xml, signatureLocation, signedXPath, credentials, options) {
+function signXML(xml: string, signatureLocation: string, signedXPath: string, credentials: Credential, options) {
 
 	options = options || {};
 
@@ -117,7 +118,7 @@ function signXML(xml, signatureLocation, signedXPath, credentials, options) {
  * @param credential: object containing a certificate (PEM)
  * @return: 0 indicating success, or a list of validation errors
  */
-function validateXMLSignature(xml, signatureNode, credential) {
+function validateXMLSignature(xml: string, signatureNode, credential: Credential): (number | string[]) {
 
 	const sigCheck = new SignedXml();
 	sigCheck.keyInfoProvider = new CertKeyInfo(credential.certificate);
@@ -136,7 +137,7 @@ function validateXMLSignature(xml, signatureNode, credential) {
  * to the xml-crypto library.
  * @param pem: key in PEM format with or without headers.
  */
-function CertKeyInfo(pem) {
+function CertKeyInfo(pem: (string | Buffer)) {
 
 	// ensure pem is not a buffer
 	const pemString = pem.toString();
@@ -171,7 +172,7 @@ function CertKeyInfo(pem) {
  * supported algorithm list (which is ordered by favorability).
  * @param parties: a list of parties which need to support the chosen algorithm.
  */
-function chooseSignatureAlgorithm(parties) {
+function chooseSignatureAlgorithm(parties: any[]): string {
 
 	let choices = supportedAlgorithms;
 	parties.forEach(entity => {
