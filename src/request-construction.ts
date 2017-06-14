@@ -66,14 +66,18 @@ async function createAuthnRequest(sp, idp, model, destinationURL) {
 					"@ProtocolBinding": spBindingChoice.longformURI,
 				},
 				{ "saml:Issuer": sp.entityID },
-				(nameIDFormat ? { "samlp:NameIDPolicy": {
-					"@Format": nameIDFormat,
-					"@AllowCreate": true
-				}} : null),
-				{ "samlp:RequestedAuthnContext": {
-					"@Comparison": "exact",
-					"saml:AuthnContextClassRef": protocol.AUTHNCONTEXT.PASSWORDPROTECTEDTRANSPORT
-				}}
+				(nameIDFormat ? {
+					"samlp:NameIDPolicy": {
+						"@Format": nameIDFormat,
+						"@AllowCreate": true
+					}
+				} : null),
+				{
+					"samlp:RequestedAuthnContext": {
+						"@Comparison": "exact",
+						"saml:AuthnContextClassRef": protocol.AUTHNCONTEXT.PASSWORDPROTECTEDTRANSPORT
+					}
+				}
 			].filter(exists => exists)
 		})
 		.end();
@@ -82,6 +86,54 @@ async function createAuthnRequest(sp, idp, model, destinationURL) {
 	await model.storeRequestID(requestID, idp)
 	return authnRequest;
 }
+
+/**
+ * Creates a Logout request and records its ID in redis
+ * @param sp: service provider config
+ * @param idp: identity provider config
+ * @param model: model instance capable of persisting a request ID
+ */
+async function createLogoutRequest(sp, idp, model, nameIDFormat, nameID, destinationURL) {
+
+	// generate an ID - 21 random bytes should be unique enough
+	const requestID = randomID();
+
+	// choose which consumption endpoint and method the assertion should
+	// come in on
+	const spBindingChoice = protocolBindings.chooseBinding(sp, "assert");
+
+	// build request payload
+	const logoutRequest = xmlbuilder
+		.begin({
+			separateArrayItems: true
+		})
+		.ele({
+			"samlp:LogoutRequest": [  // request child elements are ordered
+				{
+					"@xmlns:samlp": namespaces.samlp,
+					"@xmlns:saml": namespaces.saml,
+					"@Version": "2.0",
+					"@ID": requestID,
+					"@IssueInstant": new Date().toISOString(),
+					"@Destination": destinationURL,
+					"@ProtocolBinding": spBindingChoice.longformURI,
+				},
+				{ "saml:Issuer": sp.entityID },
+				{
+					"saml:NameID": {
+						"@Format": nameIDFormat,
+						"#text": nameID
+					}
+				},
+			].filter(exists => exists)
+		})
+		.end();
+
+	// persist the request ID, return promise chain
+	await model.storeRequestID(requestID, idp)
+	return logoutRequest;
+}
+
 
 /**
  * Selects a NameID format which is supported by both the IDP and SP

@@ -97,6 +97,46 @@ function createSuccessResponse(sp, idp, inResponseTo, nameID, attributes, destin
  * @param statusMessage: status message to convey
  * @return Promise resolving to a Response XML string
  */
+function createLogoutResponse(sender, inResponseTo, destinationURL) {
+
+	const now = new Date();
+
+	const xml = xmlbuilder.begin({
+		separateArrayItems: true
+	})
+	.ele(
+		{"samlp:LogoutResponse": [
+			{
+				"@ID": randomID(),
+				"@InResponseTo": inResponseTo,
+				"@IssueInstant": now.toISOString(),
+				"@Destination": destinationURL,
+				"@Version": "2.0",
+				"@xmlns:samlp": namespaces.samlp,
+				"@xmlns:saml": namespaces.saml
+			},
+			{ "saml:Issuer": sender.entityID },
+			{ "samlp:Status": {
+				"samlp:StatusCode": {
+					"@Value": protocol.STATUS.SUCCESS
+				}
+			}}
+		]}
+	)
+	.end();
+
+	return Promise.resolve(xml);
+}
+
+
+/**
+ * Create an authentication failure response
+ * @param sp: service provider
+ * @param idp: identity provider
+ * @param inResponseTo: AuthnRequest ID which this addresses
+ * @param statusMessage: status message to convey
+ * @return Promise resolving to a Response XML string
+ */
 function createAuthnFailureResponse(sp, idp, inResponseTo, statusMessage, destinationURL) {
 
 	const now = new Date();
