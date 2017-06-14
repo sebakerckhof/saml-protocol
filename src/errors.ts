@@ -1,9 +1,11 @@
 import ExtendableError from 'es6-error';
- 
+import { SPProviderConfig } from './service-provider';
+import { IDPProviderConfig } from './identity-provider';
+
 class SamlError extends ExtendableError {
-	sp: any
-	idp: any
-	payload: any
+	sp: SPProviderConfig
+	idp: IDPProviderConfig
+	payload: string
 
 	constructor (message, sp?, idp?, payload?) {
 		super(message);

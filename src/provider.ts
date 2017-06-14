@@ -11,12 +11,14 @@ export interface Model {
 	storeRequestID(requestID: string, requestType: string, provider: ProviderConfig) : Promise<boolean>
 	verifyRequestID(requestID: string, requestType: string, provider: ProviderConfig) : Promise<boolean>
 	invalidateRequestID(requestID: string, requestType: string, provider: ProviderConfig) : Promise<boolean>
+	getNow?(): Date
 }
 
 export type CredentialUse = "signing" | "encryption";
 
 export interface Credential {
 	certificate: string,
+	publicKey?: string,
 	privateKey?: string,
 	privateKeyPassword?: string,
 	use?: CredentialUse
@@ -40,7 +42,8 @@ export interface ProviderConfig {
 	signAllRequests?: boolean,
 	signAllResponses?: boolean,
 	requireSignedRequests?: boolean,
-	requireSignedResponses?: boolean
+	requireSignedResponses?: boolean,
+	responseLatencyInSecs?: Number
 }
 
 type Method = "POST" | "GET";

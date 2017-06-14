@@ -4,16 +4,28 @@ import {
 	XMLSerializer
 } from "xmldom";
 import xmlenc from "xml-encryption";
+import pify from "pify";
 
 import credentials from "./credentials";
 import pemFormatting from "./pem-formatting";
 
+import { Credential } from '../provider';
 import namespaces from "../namespaces";
 
 const select = xpath.useNamespaces(namespaces);
 
+interface EncryptionAlgorithm {
+	encryption?: string,
+	keyEncryption?: string
+}
+
+interface EncryptionAlgorithms {
+	encryption?: string[],
+	keyEncryption?: string[]
+}
+
 // these are the encryption algorithms supported by xml-encryption
-const supportedAlgorithms = {
+const supportedAlgorithms: EncryptionAlgorithms = {
 	encryption: [
 		"http://www.w3.org/2001/04/xmlenc#aes128-cbc",
 		"http://www.w3.org/2001/04/xmlenc#aes256-cbc",
@@ -25,7 +37,7 @@ const supportedAlgorithms = {
 	]
 };
 
-const defaultAlgorithms = {
+const defaultAlgorithms: EncryptionAlgorithm = {
 	encryption: "http://www.w3.org/2001/04/xmlenc#aes256-cbc",
 	keyEncryption: "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p"
 };
@@ -44,7 +56,7 @@ export {
  * @param doc: XML document to operate upon
  * @param credential: an array of credential objects containing private keys
  */
-async function decryptAssertion(doc, credentials) {
+async function decryptAssertion(doc: any, credentials: Credential[]): Promise<any> {
 
 	const encryptedAssertion = select("//saml:EncryptedAssertion", doc)[0];
 
@@ -79,7 +91,7 @@ async function decryptAssertion(doc, credentials) {
  * @param credential: a credential object containing a public_key and certificate
  * @param alogrithms: optional specifier to set encryption algorithms
  */
-function encryptAssertion(doc, credential, algorithms) {
+async function encryptAssertion(doc: any, credential: Credential, algorithms: EncryptionAlgorithm) {
 
 	// get the assertion body (there can only be one) as a string.
 	const assertion = select("//saml:Assertion", doc)[0];
@@ -105,34 +117,19 @@ function encryptAssertion(doc, credential, algorithms) {
  * @param credential: array of credentials containing private keys
  * @return a promise of decrypted data
  */
-function decryptData(encryptedData, credentials) {
+async function decryptData(encryptedData: string, credentials: Credential[]): Promise<string> {
 
-	// we're working with an asynchronous decryption library,
-	// so reduce the credentials array using a rejection chain which
-	// ends after the first resolution
-	return credentials
-		.reduce(function (chain, credential) {
-			return chain.catch(function () {
+	const decrypt = pify(xmlenc.decrypt);
 
-				// promise => decryption or bust
-				return new Promise(function (resolve, reject) {
-					const decryptOptions = {
-						key: credential.privateKey
-					};
-					xmlenc.decrypt(
-						encryptedData,
-						decryptOptions,
-						function (err, result) {
-							if (err) {
-								reject(err);
-							} else {
-								resolve(result);
-							}
-						}
-					);
-				});
-			});
-		}, Promise.reject("No decryption credentials"));
+	for(let credential of credentials){
+		try{
+			const decryptOptions = {key: credential.privateKey}
+			const result = await decrypt(encryptData, decryptOptions)
+			return result;
+		}catch(error){}
+	}
+
+	throw new Error("No decryption credentials");
 }
 
 /**
@@ -143,31 +140,27 @@ function decryptData(encryptedData, credentials) {
  * @param algorithms: optional specifier to set algorithms
  * @return a promise of encrypted data
  */
-function encryptData(data, credential, algorithms) {
-	return new Promise(function (resolve, reject) {
-		const algs = algorithms || {};
+function encryptData(data: string, credential: Credential, algorithms: EncryptionAlgorithm): Promise<string> {
 
-		// ensure PEM headers are present on the credential
-		const certificate = pemFormatting.addPEMHeaders("CERTIFICATE", credential.certificate);
+	const algs = algorithms || {};
 
-		// resolve public key
-		let publicKey = credential.publicKey;
-		if (!publicKey) { // only invoke if publicKey attribute is not present for performance
-			publicKey = credentials.getPublicKeyFromCertificate(certificate);
-		}
+	// ensure PEM headers are present on the credential
+	const certificate = pemFormatting.addPEMHeaders("CERTIFICATE", credential.certificate);
 
-		const encryptOptions = {
-			encryptionAlgorithm: algs.encryption || defaultAlgorithms.encryption,
-			// xmlenc's API spells this this way :(
-			keyEncryptionAlgorighm: algs.keyEncryption || defaultAlgorithms.keyEncryption,
-			pem: certificate,
-			rsa_pub: publicKey
-		};
-		xmlenc.encrypt(data, encryptOptions, function (err, result) {
-			if (err) {
-				reject(err);
-			}
-			resolve(result);
-		});
-	});
+	// resolve public key
+	let publicKey = credential.publicKey;
+	if (!publicKey) { // only invoke if publicKey attribute is not present for performance
+		publicKey = credentials.getPublicKeyFromCertificate(certificate);
+	}
+
+	const encryptOptions = {
+		encryptionAlgorithm: algs.encryption || defaultAlgorithms.encryption,
+		// xmlenc's API spells this this way :(
+		keyEncryptionAlgorighm: algs.keyEncryption || defaultAlgorithms.keyEncryption,
+		pem: certificate,
+		rsa_pub: publicKey
+	};
+
+	return pify(xmlenc.encrypt)(data, encryptOptions);
+
 }

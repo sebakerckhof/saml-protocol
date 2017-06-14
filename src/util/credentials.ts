@@ -1,10 +1,12 @@
-import forge from "node-forge";
+import { pki } from "node-forge";
 import { ProviderConfig, CredentialUse } from '../provider';
+import { isString } from 'lodash';
 // credential resolution and transformation functions
 
 export {
 	getCredentialsFromEntity,
-	getPublicKeyFromCertificate
+	getPublicKeyFromCertificate,
+	decryptPrivateKey
 }
 
 /**
@@ -18,9 +20,7 @@ function getCredentialsFromEntity(entity: ProviderConfig, use: CredentialUse) {
 	if (!entity.credentials) {
 		entity.credentials = [];
 	}
-	return entity.credentials.filter(credential => {
-		return ((credential.use === undefined) || (credential.use == use));
-	});
+	return entity.credentials.filter(credential => ((credential.use === undefined) || (credential.use == use)));
 }
 
 /**
@@ -28,7 +28,20 @@ function getCredentialsFromEntity(entity: ProviderConfig, use: CredentialUse) {
  * @param certificate: an X509 certificate in PEM format (with headers)
  * @return: a public key in PEM format (with headers)
  */
-function getPublicKeyFromCertificate(certificate: string) : string {
-	const cert = forge.pki.certificateFromPem(certificate);
-	return forge.pki.publicKeyToPem(cert.publicKey);
+function getPublicKeyFromCertificate(certificate: string) {
+	const cert = pki.certificateFromPem(certificate);
+	return pki.publicKeyToPem(cert.publicKey);
 }
+
+/**
+ * Decrypts encrypted RSA private key
+ * @param key: an encrypted RSA private key
+ * @param passphrase: passphrase to decrypt RSA key
+ * @return: unencrypted private key
+ */
+function decryptPrivateKey(key: string, passphrase?: string): string {
+	return isString(passphrase) ?
+		pki.privateKeyToPem(pki.decryptRsaPrivateKey(String(key), passphrase))
+		: key;
+}
+

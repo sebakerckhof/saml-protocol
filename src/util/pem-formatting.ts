@@ -1,16 +1,14 @@
-"use strict";
-
-module.exports = {
+export {
 	addPEMHeaders,
 	stripPEMHeaders
-};
+}
 
 /**
  * Adds headers and newlines to a cert or key
  * @param type: type of thing - use 'CERTIFICATE' for X509 certs
  * @return: a nicely formatted cert or key
  */
-function addPEMHeaders(type, key) {
+function addPEMHeaders(type: string, key: string): string {
 
 	// if we're done, we're done
 	const re = /-----BEGIN [0-9A-Z ]+-----[^-]*-----END [0-9A-Z ]+-----/g;
@@ -32,7 +30,7 @@ function addPEMHeaders(type, key) {
  * @return: the stripped cert or key
  * @throws: a fit if the provided string isn't in PEM format
  */
-function stripPEMHeaders(pem) {
+function stripPEMHeaders(pem: string): string {
 
 	// extract contents from body
 	const re = /-----BEGIN [0-9A-Z ]+-----([^-]*)-----END [0-9A-Z ]+-----/g;
@@ -48,7 +46,7 @@ function stripPEMHeaders(pem) {
 	// may have been in DER format.
 	else {
 		const stripped = pem.replace(/[\r\n|\n]/g, "");
-		const base64DecodedAndBack = new Buffer(stripped, "base64").toString("base64");
+		const base64DecodedAndBack = Buffer.from(stripped, "base64").toString("base64");
 		if (stripped == base64DecodedAndBack) {
 			return stripped;
 		}

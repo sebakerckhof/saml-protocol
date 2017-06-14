@@ -17,8 +17,15 @@ export interface SPEndPoints extends Endpoints {
 	loginRequest: EndPoint | string,
 }
 
+export interface ExtendedSPProviderConfig {
+	InResponseTo?: boolean,
+	Recipient?: boolean,
+	NotOnOrAfter?: boolean
+}
+
 export interface SPProviderConfig extends ProviderConfig {
 	endpoints: SPEndPoints,
+	extendedRequirements?: ExtendedSPProviderConfig
 }
 
 type Method = "POST" | "GET";

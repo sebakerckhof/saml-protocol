@@ -48,7 +48,7 @@ function resolveSignatureAlgorithm(sigAlg) {
  * @param privateKeyPem: private key in PEM format
  * @param signedPayload: payload string to sign
  */
-function createURLSignature(privateKeyPem, signedPayload, sigAlg) {
+function createURLSignature(privateKeyPem: string, signedPayload: string, sigAlg: string): string {
 	const privateKeyPemWithHeaders = pemFormatting.addPEMHeaders("RSA PRIVATE KEY", privateKeyPem);
 	const signingAlgorithmName = resolveSignatureAlgorithm(sigAlg);
 	return SignedXml
@@ -66,13 +66,18 @@ function createURLSignature(privateKeyPem, signedPayload, sigAlg) {
  * @param signedPayload: payload string on which to verify signature
  * @param signature: signature parameter
  */
-function verifyURLSignature(certPem: string, signedPayload: string, sigAlg: string, signature: string) {
+function verifyURLSignature(certPem: string, signedPayload: string, sigAlg: string, signature: string): string {
 	const certPemWitHeaders = pemFormatting.addPEMHeaders("CERTIFICATE", certPem);
 	const signingAlgorithmName = resolveSignatureAlgorithm(sigAlg);
 	return SignedXml
 		.prototype
 		.findSignatureAlgorithm(signingAlgorithmName)
 		.verifySignature(signedPayload, certPemWitHeaders, signature);
+}
+
+interface SignXMLOptions {
+	signatureAlgorithm?: string,
+	prefix?: string
 }
 
 /**
@@ -84,9 +89,7 @@ function verifyURLSignature(certPem: string, signedPayload: string, sigAlg: stri
  * @param credentials: object containing a certificate and private key (PEM)
  * @param options: options including 'prefix' and 'signatureAlgorithm'
  */
-function signXML(xml: string, signatureLocation: string, signedXPath: string, credentials: Credential, options) {
-
-	options = options || {};
+function signXML(xml: string, signatureLocation: string, signedXPath: string, credentials: Credential, options: SignXMLOptions = {}): string {
 
 	// create and configure xml-crypto SignedXml instance
 	const signatureAlgorithm = resolveSignatureAlgorithm(options.signatureAlgorithm);
@@ -118,7 +121,7 @@ function signXML(xml: string, signatureLocation: string, signedXPath: string, cr
  * @param credential: object containing a certificate (PEM)
  * @return: 0 indicating success, or a list of validation errors
  */
-function validateXMLSignature(xml: string, signatureNode, credential: Credential): (number | string[]) {
+function validateXMLSignature(xml: string, signatureNode: any, credential: Credential): (number | string[]) {
 
 	const sigCheck = new SignedXml();
 	sigCheck.keyInfoProvider = new CertKeyInfo(credential.certificate);
@@ -137,14 +140,16 @@ function validateXMLSignature(xml: string, signatureNode, credential: Credential
  * to the xml-crypto library.
  * @param pem: key in PEM format with or without headers.
  */
-function CertKeyInfo(pem: (string | Buffer)) {
+class CertKeyInfo{
+	pemString: string;
 
-	// ensure pem is not a buffer
-	const pemString = pem.toString();
+	constructor(pem: (string | Buffer)){
+		this.pemString = pem.toString();
+	}
 
-	this.getKeyInfo = function (key, prefix) {
+	getKeyInfo(key, prefix): string {
 
-		const keyInfoXML = pemFormatting.stripPEMHeaders(pemString);
+		const keyInfoXML = pemFormatting.stripPEMHeaders(this.pemString);
 		const element = {
 			"ds:X509Data": {
 				"ds:X509Certificate": keyInfoXML
@@ -160,11 +165,11 @@ function CertKeyInfo(pem: (string | Buffer)) {
 			.begin()
 			.ele(element)
 			.end();
-	};
+	}
 
-	this.getKey = function () {
-		return pemFormatting.addPEMHeaders("CERTIFICATE", pemString);
-	};
+	getKey(): string {
+		return pemFormatting.addPEMHeaders("CERTIFICATE", this.pemString);
+	}
 }
 
 /**

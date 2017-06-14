@@ -1,10 +1,14 @@
-import xpath from "xpath);
+import xpath from "xpath";
 
 import signing from "./util/signing";
 import credentials from "./util/credentials";
 import namespaces from "./namespaces";
 import protocolBindings from "./protocol-bindings";
 import moment from "moment";
+
+import { Model } from './provider';
+import { SPProviderConfig } from './service-provider';
+import { IDPProviderConfig } from './identity-provider';
 
 const select = xpath.useNamespaces(namespaces);
 
@@ -16,15 +20,15 @@ const select = xpath.useNamespaces(namespaces);
  */
 export default class ResponseValidator {
 
-	sp: any
-	idp: any
-	model: any
+	sp: SPProviderConfig
+	idp: IDPProviderConfig
+	model: Model
 	errorMessages: string[]
 	hasValidSignature: boolean
 	inResponseTo: String
 	inResponseToChecked: boolean
 
-	constructor(sp, idp, model) {
+	constructor(sp: SPProviderConfig, idp: IDPProviderConfig, model: Model) {
 		this.sp = sp;
 		this.idp = idp;
 		this.model = model;
@@ -35,15 +39,15 @@ export default class ResponseValidator {
 		this.inResponseToChecked = false;
 	}
 
-	getNow(): Date {
+	getNow() {
 		return this.model.getNow() || new Date();
 	}
 
-	addError(message: string): void {
+	addError(message: string) {
 		this.errorMessages.push(message);
 	}
 
-	isValid(): boolean {
+	isValid() {
 		return !this.errorMessages.length;
 	}
 
@@ -60,13 +64,13 @@ export default class ResponseValidator {
  * @param doc: fully-decrypted SAML document
  * @return: a promise fulfilled after validation completes
  */
-	async validateResponseDocument(doc): Promise {
+	async validateResponseDocument(doc) {
 
 		// ensure that exactly one response node is present
 		const responseNodes = select("//samlp:Response", doc);
 		if (responseNodes.length != 1) {
 			this.addError("Document must contain exactly one Response node");
-			return Promise.resolve();  // nothing left to do
+			return;  // nothing left to do
 		}
 
 		const responseNode = responseNodes[0];
@@ -96,7 +100,7 @@ export default class ResponseValidator {
 
 		if (inResponseTo || requireInResponseTo) {
 			try {
-				await this.verifyInResponseTo(inResponseTo, this.idp)
+				await this.verifyInResponseTo(inResponseTo)
 			} catch (error) {
 				this.addError("invalid InResponseTo in Response node");
 			}
@@ -116,7 +120,7 @@ export default class ResponseValidator {
  * @param assertion: an SAML Assertion node
  * @return: a promise chain
  */
-	validateAssertion(assertion): Promise<any> {
+	validateAssertion(assertion) {
 
 		// ensure that the assertion came from the right place
 		// unlike the parent document's Issuer, this Issuer element is REQUIRED
@@ -145,7 +149,7 @@ export default class ResponseValidator {
 		const subjectConfirmation = select("//saml:SubjectConfirmation", assertion)[0];
 		if (!subjectConfirmation) {
 			this.addError("no SubjectConfirmation in Assertion");
-			return Promise.resolve();
+			return;
 		}
 
 		const method = subjectConfirmation.getAttribute("Method");
@@ -156,7 +160,7 @@ export default class ResponseValidator {
 		const data = select("//saml:SubjectConfirmationData", subjectConfirmation)[0];
 		if (!data) {
 			this.addError("subject confirmation does not contain a data element");
-			return Promise.resolve();
+			return;
 		}
 
 		const recipient = data.getAttribute("Recipient");
@@ -215,7 +219,7 @@ export default class ResponseValidator {
 	 * @param id: ID to check
 	 * @return a promise which will resolve if the ID was issued against this IDP
 	 */
-	async verifyInResponseTo(id) {
+	async verifyInResponseTo(id: string) {
 		if (this.inResponseToChecked) {
 			if (this.inResponseTo && (this.inResponseTo == id)) {
 				return true;
@@ -322,7 +326,7 @@ export default class ResponseValidator {
 	 * @param node: parsed XML document node upon which to validate signatures
 	 * @param cert: certificate to use for validation
 	 */
-	validateAllSignatures(xml: string, node: any): void {
+	validateAllSignatures(xml: string, node) {
 
 		const signatures = select("//ds:Signature", node);
 		const creds = credentials.getCredentialsFromEntity(this.idp, "signing");
@@ -335,13 +339,7 @@ export default class ResponseValidator {
 
 		// validate all the sigs - there are edge cases where we have more than one!
 		signatures.forEach(sig => {
-			let sigValid = false;
-			creds.forEach(credential => {
-				const validationErrors = signing.validateXMLSignature(xml, sig, credential);
-				if (!validationErrors) {
-					sigValid = true;
-				}
-			});
+			const sigValid = !!creds.find(credential => !signing.validateXMLSignature(xml, sig, credential))
 			if (sigValid) {
 				this.hasValidSignature = true;
 			}
@@ -355,7 +353,7 @@ export default class ResponseValidator {
 	 * Signature requirement validator - adds an error if the SP is configured
 	 * to require signatures and no valid signatures have been encountered.
 	 */
-	validateSignatureRequirement(): void {
+	validateSignatureRequirement() {
 		if (this.sp.requireSignedResponses && !this.hasValidSignature) {
 			this.addError("no valid signature in request");
 		}
