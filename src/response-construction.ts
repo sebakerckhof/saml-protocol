@@ -1,8 +1,7 @@
-"use strict";
-
 import xmlbuilder from "xmlbuilder";
 import xmldom from "xmldom";
 
+import { ProviderConfig } from './provider';
 import { ProtocolError } from "./errors";
 import namespaces from "./namespaces";
 import protocol from "./protocol";
@@ -10,6 +9,7 @@ import protocolBindings from "./protocol-bindings";
 import credentials from "./util/credentials";
 import encryption from "./util/encryption";
 import randomID from "./util/random-id";
+
 
 export {
 
@@ -90,12 +90,10 @@ function createSuccessResponse(sp, idp, inResponseTo, nameID, attributes, destin
 }
 
 /**
- * Create an authentication failure response
- * @param sp: service provider
- * @param idp: identity provider
- * @param inResponseTo: AuthnRequest ID which this addresses
- * @param statusMessage: status message to convey
- * @return Promise resolving to a Response XML string
+ * Create a SAML logout response
+ * @param sender 
+ * @param inResponseTo 
+ * @param destinationURL 
  */
 function createLogoutResponse(sender, inResponseTo, destinationURL) {
 

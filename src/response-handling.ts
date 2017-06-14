@@ -1,14 +1,13 @@
-import xmldom from "xmldom";
+import { DOMParser, XMLSerializer } from "xmldom";
 import xpath from "xpath";
 
 import credentials from "./util/credentials";
 import encryption from "./util/encryption";
-import { ProtocolError, RejectionError } from "./errors";
+import { ProtocolError, RejectionError, ValidationError } from "./errors";
 import namespaces from "./namespaces";
 import protocol from "./protocol";
 import responseValidation from "./response-validation";
 
-import DOMParser = xmldom.DOMParser;
 
 const select = xpath.useNamespaces(namespaces);
 
@@ -96,7 +95,7 @@ async function processResponse(model, sp, samlResponse) {
 
 		assertion = select("//saml:Assertion", doc)[0];
 
-		const newDocXML = new xmldom.XMLSerializer().serializeToString(doc);
+		const newDocXML = new XMLSerializer().serializeToString(doc);
 		validator.validateAllSignatures(newDocXML, assertion);
 	}
 	else {
@@ -110,7 +109,7 @@ async function processResponse(model, sp, samlResponse) {
 
 	// throw an error with the aggregate validation issues if necessary
 	if (!validator.isValid()) {
-		throw new errors.ValidationError(
+		throw new ValidationError(
 			"invalid assertion",
 			validator.getErrors(),
 			sp,
@@ -163,7 +162,7 @@ function checkStatus(doc, idp) {
 			errBody += " and messages: " + messageStrings.join(", ");
 		}
 
-		const serializedDoc = new xmldom.XMLSerializer().serializeToString(doc);
+		const serializedDoc = new XMLSerializer().serializeToString(doc);
 		throw new RejectionError(errBody, null, idp, serializedDoc);
 	}
 }

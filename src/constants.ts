@@ -9,6 +9,8 @@ const namespace = {
 	"xsi" = "http://www.w3.org/2001/XMLSchema-instance"
 }
 
+
+
 const protocol = {
 	"NAMEIDFORMAT": {
 		"EMAILADDRESS": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",

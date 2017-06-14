@@ -34,6 +34,11 @@ export interface EndPoints {
 	logoutResponse?: EndPoint | string, 
 }
 
+export interface ExpandedEndPoints {
+	logoutRequest?: EndPoint,
+	logoutResponse?: EndPoint, 
+}
+
 export interface ProviderConfig {
 	entityID: string
 	credentials: (Credential | string)[] ,

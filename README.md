@@ -4,6 +4,8 @@
 A framework-agnostic SAML protocol implementation intended to support both
 ends of SSO handshakes.
 
+Tested with Shibboleth, SimpleSamlPhp, Microsoft ADFS, Okta and OneLogin
+
 ## Features:
 
 - request construction and response ingestion for service providers

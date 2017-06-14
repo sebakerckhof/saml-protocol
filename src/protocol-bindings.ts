@@ -7,6 +7,7 @@ import credentials from "./util/credentials";
 import signing from "./util/signing";
 
 import protocol from "./protocol";
+import { ProviderConfig, EndPoints, ExpandedEndPoints } from "./provider";
 
 /////////////////////////////////////////////////////////////////
 //// POST and REDIRECT SAML protocol binding implementations ////
@@ -30,7 +31,7 @@ export {
  * @param endpoints: endpoints object from entity config
  * @return an expanded endpoint.thing.httpMethod object
  */
-function expandBindings(endpoints) {
+function expandBindings(endpoints: EndPoints): ExpandedEndPoints {
 	return Object.keys(endpoints).reduce((expanded, method) => {
 		const bindingDefinition = endpoints[method];
 		if (typeof bindingDefinition === "object") {
@@ -46,7 +47,23 @@ function expandBindings(endpoints) {
 	}, {});
 }
 
-function chooseBinding(recipient, action) {
+interface chooseBindingResult {
+	binding: string
+	/**
+	 * Endpoint url
+	 */
+	url: string,
+	/**
+	 * 
+	 */
+	longformURI: string
+}
+/**
+ * Choose a binding both this library and the recipient support
+ * @param recipient Recepient
+ * @param action e.g. loginRequest, logoutResponse, ...
+ */
+function chooseBinding(recipient: ProviderConfig, action: string): chooseBindingResult {
 	const endpoints = expandBindings(recipient.endpoints);
 	const definedBindings = endpoints[action];
 	if (!definedBindings) {
@@ -64,6 +81,28 @@ function chooseBinding(recipient, action) {
 	};
 }
 
+
+interface applyBindingParameters {
+	sender: ProviderConfig,
+	recipient: ProviderConfig,
+	xmlPayload: string,
+	isResponse: boolean,
+	endpointURL: string,
+	action: string,
+	relayState?: string
+}
+
+interface applyBindingChoiceParameters extends applyBindingParameters {
+	choice: chooseBindingResult
+}
+
+interface httpBindingResult {
+	url: any,
+	method: string,
+	contentType?: string,
+	formBody?: dataParams,
+}
+
 /**
  * Chooses and applies a protocol binding for a given payload. Favors post
  * when both are defined since it is more versitile.
@@ -75,41 +114,34 @@ function chooseBinding(recipient, action) {
  * @param choice: binding choice produced by chooseBinding
  * @return: an object indicating what to do the user's browser
  */
-function applyBinding(sender, recipient, xmlPayload, isResponse, action, choice) {
+function applyBinding({sender, recipient, xmlPayload, isResponse, action, choice}: applyBindingChoiceParameters): httpBindingResult {
 
-	// apply the chosen binding, return result
-	if (choice.binding == "post") {
-		return applyPostBinding(
-			sender,
-			recipient,
-			xmlPayload,
-			isResponse,
-			choice.url,
-			action
-		);
-	}
-	else {
-		return applyRedirectBinding(
-			sender,
-			recipient,
-			xmlPayload,
-			isResponse,
-			choice.url
-		);
-	}
+	const endpointURL = choice.url;
+
+		return {
+		post: applyPostBinding,
+		redirect: applyRedirectBinding
+	}[choice.binding]({
+		sender,
+		recipient,
+		xmlPayload,
+		isResponse,
+		endpointURL,
+		action
+	})
+
 }
 
 /**
  * Applies the GET / redirect authentication request binding to a given
  * AuthnRequest, and returns a description of where to send the user
  */
-function applyRedirectBinding(sender, recipient, xmlPayload, isResponse, endpointURL) {
+function applyRedirectBinding({ sender, recipient, xmlPayload, isResponse, endpointURL, action, relayState = "" }: applyBindingParameters) : httpBindingResult {
 
 	// deflate and base64 the payload
 	const samlPayload = zlib.deflateRawSync(xmlPayload).toString("base64");
 
 	const queryKey = isResponse ? "SAMLResponse" : "SAMLRequest";
-	const relayState = "";
 
 	const urlObj = url.parse(endpointURL);
 	urlObj.query = {};
@@ -119,8 +151,8 @@ function applyRedirectBinding(sender, recipient, xmlPayload, isResponse, endpoin
 	}
 
 	if (
-		( sender.signAllResponses || sender.signAllRequests ) ||
-		( recipient.requireSignedResponses || recipient.requireSignedRequests )
+		(sender.signAllResponses || sender.signAllRequests) ||
+		(recipient.requireSignedResponses || recipient.requireSignedRequests)
 	) {
 
 		const sigAlg = signing.chooseSignatureAlgorithm([sender, recipient]);
@@ -149,14 +181,14 @@ function applyRedirectBinding(sender, recipient, xmlPayload, isResponse, endpoin
  * Applies the POST binding to a given Response, and returns a descirption
  * of where to send the user
  */
-function applyPostBinding(sender, recipient, xmlPayload, isResponse, endpointURL, action) {
+function applyPostBinding({ sender, recipient, xmlPayload, isResponse, endpointURL, action, relayState = "" }: applyBindingParameters) : httpBindingResult {
 
 	let finalPayload = xmlPayload;
 
 	// if we should sign the request based on configuration, do so
 	if (
-		( sender.signAllResponses || sender.signAllRequests ) ||
-		( recipient.requireSignedResponses || recipient.requireSignedRequests )
+		(sender.signAllResponses || sender.signAllRequests) ||
+		(recipient.requireSignedResponses || recipient.requireSignedRequests)
 	) {
 		const sigAlg = signing.chooseSignatureAlgorithm([sender, recipient]);
 		const sigCredential = credentials.getCredentialsFromEntity(sender, "signing")[0];
@@ -198,7 +230,15 @@ function applyPostBinding(sender, recipient, xmlPayload, isResponse, endpointURL
 	};
 }
 
-function getDataFromRedirectBinding(queryParams) {
+interface dataParams {
+	SAMLRequest?: string,
+	SAMLResponse?: string,
+	Signature?: string,
+	SigAlg?: string,
+	RelayState?: string
+}
+
+function getDataFromRedirectBinding(queryParams: dataParams) {
 
 	const samlParamName = queryParams.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
 	const samlPayload = queryParams[samlParamName];
@@ -212,9 +252,9 @@ function getDataFromRedirectBinding(queryParams) {
 		const signedPayload = constructSignaturePayload(queryParams);
 		const sigAlg = queryParams.SigAlg;
 
-		verifySignature = function(sender) {
+		verifySignature = function (sender) {
 			const signingCredentials = credentials.getCredentialsFromEntity(sender, "signing");
-			for (let i=0; i<signingCredentials.length; i++) {
+			for (let i = 0; i < signingCredentials.length; i++) {
 				const credential = signingCredentials[i];
 				if (signing.verifyURLSignature(
 					credential.certificate,
@@ -236,7 +276,7 @@ function getDataFromRedirectBinding(queryParams) {
 	};
 }
 
-function getDataFromPostBinding(postParams) {
+function getDataFromPostBinding(postParams: dataParams) {
 	const samlParamName = postParams.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
 	const samlPayload = postParams[samlParamName];
 	if (!samlPayload) {
@@ -255,7 +295,7 @@ function getDataFromPostBinding(postParams) {
  * @return: decoded XML payload
  * @throws a fit if the payload isn't deflated or base64ed.
  */
-function decodeXMLPayload(rawPayload) {
+function decodeXMLPayload(rawPayload: string): string {
 
 	const rawPayloadBuff = Buffer.from(rawPayload, "base64");
 	let decoded = null;
@@ -264,8 +304,8 @@ function decodeXMLPayload(rawPayload) {
 	try {
 		decoded = zlib.inflateRawSync(rawPayloadBuff).toString("utf8");
 
-	// if inflation failed, attempt raw conversion
-	// if this fails, we have a legitimate error.
+		// if inflation failed, attempt raw conversion
+		// if this fails, we have a legitimate error.
 	}
 	catch (err) {
 		decoded = rawPayloadBuff.toString("utf8");
@@ -282,14 +322,14 @@ function decodeXMLPayload(rawPayload) {
 /**
  * Constructs a query parameter string to sign
  */
-function constructSignaturePayload(query) {
+function constructSignaturePayload(query: dataParams): string {
 
 	const samlParamName = query.SAMLRequest ? "SAMLRequest" : "SAMLResponse";
 
 	const payloadParams = [
 		{ key: samlParamName, val: query[samlParamName] },
-		{ key: "RelayState",  val: query.RelayState },
-		{ key: "SigAlg",      val: query.SigAlg}
+		{ key: "RelayState", val: query.RelayState },
+		{ key: "SigAlg", val: query.SigAlg }
 	].filter(part => part.val);
 
 	return payloadParams
