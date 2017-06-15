@@ -39,15 +39,26 @@ export interface ExpandedEndPoints {
 	logoutResponse?: EndPoint, 
 }
 
+export interface Algorithms {
+	signing?: string[],
+	encryption?: string[],
+	keyEncryption?: string[]
+}
+
 export interface ProviderConfig {
 	entityID: string
 	credentials: (Credential | string)[] ,
 	endpoints: EndPoints,
+	algorithms?: Algorithms,
 	nameIDFormats?: string[],
 	signAllRequests?: boolean,
 	signAllResponses?: boolean,
 	requireSignedRequests?: boolean,
 	requireSignedResponses?: boolean,
+	requireEncryptedRequests?: boolean,
+	encryptAllRequests?: boolean
+	requireEncryptedResponses?: boolean,
+	encryptAllResponses?: boolean
 	responseLatencyInSecs?: Number
 }
 

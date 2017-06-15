@@ -7,11 +7,18 @@ import pemFormatting from "./pem-formatting";
 import { Credential } from '../provider';
 
 // we export this list for use in metadata
-const supportedAlgorithms = [
-	"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
-	"http://www.w3.org/2001/04/xmldsig-more#rsa-sha512",
-	"http://www.w3.org/2000/09/xmldsig#rsa-sha1"
-];
+const supportedAlgorithms = {
+	signing:[
+		"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+		"http://www.w3.org/2001/04/xmldsig-more#rsa-sha512",
+		"http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+	],
+	digest:[
+		"http://www.w3.org/2001/04/xmlenc#sha256",
+		"http://www.w3.org/2001/04/xmlenc#sha512",
+		"http://www.w3.org/2000/09/xmldsig#sha1"
+	]
+};
 
 export {
 	createURLSignature,
@@ -176,14 +183,15 @@ class CertKeyInfo{
  * Chooses a signature algorithm that both the IDP and SP support, using the
  * supported algorithm list (which is ordered by favorability).
  * @param parties: a list of parties which need to support the chosen algorithm.
+ * @param use: e.g. signing, digest
  */
-function chooseSignatureAlgorithm(parties: any[]): string {
+function chooseSignatureAlgorithm(parties: any[], use: string): string {
 
-	let choices = supportedAlgorithms;
+	let choices = supportedAlgorithms[use];
 	parties.forEach(entity => {
-		if (entity.algorithms && entity.algorithms.signing) {
+		if (entity.algorithms && entity.algorithms[use]) {
 			choices = choices.filter(choice => {
-				return (entity.algorithms.signing.indexOf(choice) != -1);
+				return (entity.algorithms[use].indexOf(choice) != -1);
 			});
 		}
 	});
