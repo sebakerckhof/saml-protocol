@@ -151,8 +151,8 @@ function applyRedirectBinding({ sender, recipient, xmlPayload, isResponse, endpo
 	}
 
 	if (
-		(sender.signAllResponses || sender.signAllRequests) ||
-		(recipient.requireSignedResponses || recipient.requireSignedRequests)
+		( isResponse && (recipient.requireSignedResponses || sender.signAllResponses)) ||
+		( !isResponse && (recipient.requireSignedRequests || sender.signAllRequests))
 	) {
 
 		const sigAlg = signing.chooseSignatureAlgorithm([sender, recipient]);
