@@ -1,7 +1,7 @@
 {
   "name": "@barco/saml-protocol",
-  "version": "0.5.4",
-  "upstreamVersion": "0.3.6",
+  "version": "0.5.5",
+  "upstreamVersion": "0.3.7",
   "publishConfig": {
     "registry": "https://bin.barco.com/artifactory/api/npm/npm-local"
   },
