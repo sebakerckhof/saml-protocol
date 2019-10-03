@@ -1,6 +1,6 @@
 {
   "name": "@barco/saml-protocol",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "upstreamVersion": "0.3.7",
   "publishConfig": {
     "registry": "https://bin.barco.com/artifactory/api/npm/npm-local"
@@ -29,26 +29,26 @@
     "test:watch": "npm test -- --watch"
   },
   "dependencies": {
-    "moment": "^2.24.0",
-    "node-forge": "0.8.1",
-    "xml-crypto": "1.2.0",
+    "moment": "2.24.0",
+    "node-forge": "0.9.1",
+    "xml-crypto": "1.4.0",
     "xml-encryption": "0.11.2",
-    "xmlbuilder": "11.0.0",
+    "xmlbuilder": "13.0.2",
     "xmldom": "0.1.22",
     "xpath": "0.0.27",
     "xpath.js": "1.1.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.2.3",
-    "@babel/core": "^7.3.4",
-    "@babel/preset-env": "^7.3.4",
-    "@babel/register": "^7.0.0",
-    "babel-eslint": "^10.0.1",
+    "@babel/cli": "^7.6.2",
+    "@babel/core": "^7.6.2",
+    "@babel/preset-env": "^7.6.2",
+    "@babel/register": "^7.6.2",
+    "babel-eslint": "^10.0.3",
     "chai": "^4.2.0",
-    "eslint": "^5.15.1",
-    "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-plugin-import": "^2.16.0",
-    "mocha": "^6.0.2"
+    "eslint": "^6.5.1",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.18.2",
+    "mocha": "^6.2.1"
   },
   "bugs": {
     "url": "https://github.com/socialtables/saml-protocol/issues"
