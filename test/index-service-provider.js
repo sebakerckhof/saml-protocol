@@ -595,7 +595,7 @@ describe('ServiceProvider', function () {
 
     it('should produce a metadata descriptor describing a complex SP', function () {
       const spConf = {
-        entityID: 'test.socialtables.com',
+        entityID: 'test.saml.com',
         credentials: [
           {
             use: 'signing',
@@ -610,8 +610,12 @@ describe('ServiceProvider', function () {
         ],
         endpoints: {
           assert: {
-            redirect: 'test.socialtables.com/assert/redirect',
-            post: 'test.socialtables.com/assert/redirect',
+            redirect: 'test.saml.com/assert/redirect',
+            post: 'test.saml.com/assert/redirect',
+          },
+          logout: {
+            redirect: 'test.saml.com/logout/redirect',
+            post: 'test.saml.com/logout/redirect',
           },
         },
         signAllRequests: true,
@@ -621,7 +625,7 @@ describe('ServiceProvider', function () {
       const sp = new ServiceProvider(spConf, null);
       const md = sp.produceSPMetadata();
       md.should.not.be.null;
-
+      // md.should.equal(`entityID="test.saml.com" xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ds:Reference URI="#_212193ea69dc927b87d5a3f9c3ed0c3f85c076fc20"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>Iv8QlbOohdM06Na1UAlzCuvMbI8=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>kXswQjouFxxaiXy5jt8tiojcUzdswNaOBCypIu7xW1MIzTtZsnl2hHNtZNatDRJKS5x40U4OExhSwmF8iBbiSsCNHFpGa90uqeTv9wLk9cr02qEXMfvLWBLv4+vj4mhnJHbhVCRxW7Mm7ByvRUE6c48r6sxicoNqoH13g5f+3nYRruVTDeBScYZhg5Y3AIvPaGzNVsTfFTQSfZpmwLAQPwcfxgqB9Q+kBEJi/j7+4G/jPLc55VZTyQBt28MnXPK+e20BVVNdXVihzRwyAWN/i3NrO8rj+eO67KoK3GKfSZpHE55uQsE3CnP6slXaeDFnG6KzbcmkAvULstDrQVcK/Q==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDpDCCAowCCQDL+eawbnMNhzANBgkqhkiG9w0BAQUFADCBkzELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkRDMRMwEQYDVQQHEwpXYXNoaW5ndG9uMRYwFAYDVQQKEw1Tb2NpYWwgVGFibGVzMRcwFQYDVQQLEw5JbmZyYXN0cnVjdHVyZTExMC8GCSqGSIb3DQEJARYicm9iZXJ0LmJyb3duc3RlaW5Ac29jaWFsdGFibGVzLmNvbTAeFw0xNjA2MDcxNTE1MjFaFw0xNzA2MDcxNTE1MjFaMIGTMQswCQYDVQQGEwJVUzELMAkGA1UECBMCREMxEzARBgNVBAcTCldhc2hpbmd0b24xFjAUBgNVBAoTDVNvY2lhbCBUYWJsZXMxFzAVBgNVBAsTDkluZnJhc3RydWN0dXJlMTEwLwYJKoZIhvcNAQkBFiJyb2JlcnQuYnJvd25zdGVpbkBzb2NpYWx0YWJsZXMuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvJF5YuTmf9m30UfRih+klHhNEfkOzloAEUlqF9dyaP84qN8yrhys1HYFxvVJpsWWu5PoUPeXvg6LiNyfBnFOskG65hcSoz4qpHGlRhQ96mVHU8zfQz/fp9eyHteHJ2BU809/i1COVfgdE59MbZDPE+CYxqMP9LyDmAMJ2e06etOXj36Ok0elbCeCYE4rRwX9292ziuXHayEijCKNXizn9IbPYqc8eqAKv4NdEmvU0MocV60wvVdgBHVx9yWumVxoBQWJ2LqDKav0HzAaF9iFWH14+S7JNE07YyK0JRDqvxZFFit46ZEbqpWv3NKvnnCPM3YuyapPjXLkFvZJMMwujwIDAQABMA0GCSqGSIb3DQEBBQUAA4IBAQAQp9g8KADDCRqFgeBJJY97VN/q2dLqEr1jTMYmHLqVQAm1weKbHMxNSVoYolIuarWdbzSKTZkJB/eEb7edQxQSg+Uul/ukPoqSpWjbuEnQRY4mItTlgq09ErBwdKZVq/WLymrE82ScEtqDrMQTCFHPLAV7ICOk6iaJpGkhsKrQinKlIlAOiO0d1xgllprSJu2jPb6Z6zb4btnFHct5U+yfrHdQIckeR9+KR1BAn+I82/Q2wMIgNXR9rmTby/jymXsjUcDtOJoOuWyQVJkSLg0YmABHwd+yIESCQ6T/jpiPj22jv4tALS4i/iu4BLwk3SflmcsM8HOIo4JMSBqDKz7J</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><md:SPSSODescriptor WantAssertionsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDpDCCAowCCQDL+eawbnMNhzANBgkqhkiG9w0BAQUFADCBkzELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkRDMRMwEQYDVQQHEwpXYXNoaW5ndG9uMRYwFAYDVQQKEw1Tb2NpYWwgVGFibGVzMRcwFQYDVQQLEw5JbmZyYXN0cnVjdHVyZTExMC8GCSqGSIb3DQEJARYicm9iZXJ0LmJyb3duc3RlaW5Ac29jaWFsdGFibGVzLmNvbTAeFw0xNjA2MDcxNTE1MjFaFw0xNzA2MDcxNTE1MjFaMIGTMQswCQYDVQQGEwJVUzELMAkGA1UECBMCREMxEzARBgNVBAcTCldhc2hpbmd0b24xFjAUBgNVBAoTDVNvY2lhbCBUYWJsZXMxFzAVBgNVBAsTDkluZnJhc3RydWN0dXJlMTEwLwYJKoZIhvcNAQkBFiJyb2JlcnQuYnJvd25zdGVpbkBzb2NpYWx0YWJsZXMuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvJF5YuTmf9m30UfRih+klHhNEfkOzloAEUlqF9dyaP84qN8yrhys1HYFxvVJpsWWu5PoUPeXvg6LiNyfBnFOskG65hcSoz4qpHGlRhQ96mVHU8zfQz/fp9eyHteHJ2BU809/i1COVfgdE59MbZDPE+CYxqMP9LyDmAMJ2e06etOXj36Ok0elbCeCYE4rRwX9292ziuXHayEijCKNXizn9IbPYqc8eqAKv4NdEmvU0MocV60wvVdgBHVx9yWumVxoBQWJ2LqDKav0HzAaF9iFWH14+S7JNE07YyK0JRDqvxZFFit46ZEbqpWv3NKvnnCPM3YuyapPjXLkFvZJMMwujwIDAQABMA0GCSqGSIb3DQEBBQUAA4IBAQAQp9g8KADDCRqFgeBJJY97VN/q2dLqEr1jTMYmHLqVQAm1weKbHMxNSVoYolIuarWdbzSKTZkJB/eEb7edQxQSg+Uul/ukPoqSpWjbuEnQRY4mItTlgq09ErBwdKZVq/WLymrE82ScEtqDrMQTCFHPLAV7ICOk6iaJpGkhsKrQinKlIlAOiO0d1xgllprSJu2jPb6Z6zb4btnFHct5U+yfrHdQIckeR9+KR1BAn+I82/Q2wMIgNXR9rmTby/jymXsjUcDtOJoOuWyQVJkSLg0YmABHwd+yIESCQ6T/jpiPj22jv4tALS4i/iu4BLwk3SflmcsM8HOIo4JMSBqDKz7J</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:KeyDescriptor use="encryption"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIICpDCCAYwCCQCuOTQslbup7DANBgkqhkiG9w0BAQUFADAUMRIwEAYDVQQDEwlsb2NhbGhvc3QwHhcNMTYwNjA3MTUxNzU3WhcNMTcwNjA3MTUxNzU3WjAUMRIwEAYDVQQDEwlsb2NhbGhvc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCtWYTCtOijIBeS4gnM2+hDkCndX4Ejtvezgbb4FtTCcVKN3+ZL1IiNQjtPWuyOykPqSaF6VXYsDnrE8HOxi82bLrOgNTB30gsBpPnXQtdiWrmHBoeUYYwcrlrCSPYRSmscIb9f0oLgWmbZhtxri2Grcap1CedAAaFWuh+3lWijb5kxL5Ic2TcI3hztJwd4MU+g0kiaABP7k/cBaBiwEQPfoabpG3QfFt8gVFVAqjQcMWAHFWjO9FmapEEKs64XW+8JAYLMf9sImea/iI9ycDRxqjkJrcRx95j+bme5LmMMjmLW9DTjirv4nVHfXj5cdDqf6ZcsjYbYq6h5uhig/YuJAgMBAAEwDQYJKoZIhvcNAQEFBQADggEBAJ1Uk8lqaayuzsryowzoads67gMYu7VTlth/2d+i3S2zLfIea0KJUeb86WBUJHtVnlTslaRjNr0kRtvBGTF3ycf9nJFMqvj1u/ew3sU6hilxqrt4Q/uoLGMXbaeXYUW6hvFiXM7mB8elPxAhO+XJu0CgBmd2+3CoGRPmRN12/F3vUI5sLkA+lSwdVZpWXJqzz9uPgeJfxkmLsNYAtHQnKkDU5Yg/gs1ZDH8dEIp3nEvYFBBQy/kbtG/MS3os3q1e4DWwKshYZ0oHqz/ubw2TUG+Y4SZ7STPgVoc9ny15bElR/IlSz5frmj4KeuohZO4UfrgJV2avFIFEO/cZgOoTRRg=</ds:X509Certificate></ds:X509Data></ds:KeyInfo><md:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/><md:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc"/><md:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><md:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p"/><md:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-1_5"/></md:KeyDescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="test.saml.com/logout/redirect" ResponseLocation="test.saml.com/logout/redirect"/><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="test.saml.com/logout/redirect" ResponseLocation="test.saml.com/logout/redirect"/><md:AssertionConsumerService index="0" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="test.saml.com/assert/redirect"/><md:AssertionConsumerService index="1" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="test.saml.com/assert/redirect"/></md:SPSSODescriptor></md:EntityDescriptor>`); // eslint-disable-line
       const spConfFromData = metadata.getSPFromMetadata(md);
       spConfFromData.entityID.should.equal(spConf.entityID);
       spConfFromData.credentials.length.should.equal(2);
@@ -664,7 +668,7 @@ describe('ServiceProvider', function () {
       const userAttributes = {
         FirstName: 'Bobby',
         LastName: 'Tables',
-        EmailAddress: 'bobby@socialtables.com',
+        EmailAddress: 'bobby@saml.com',
       };
 
       const spRequestDescriptor = await sp.produceAuthnRequest(spModel.idpStub);
